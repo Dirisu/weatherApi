@@ -7,8 +7,9 @@
 
 
 import UIKit
+import CoreLocation
 
-class ViewController: UIViewController, UITextFieldDelegate, weatherManagerDelegate {
+class ViewController: UIViewController {
     
     @IBOutlet weak var conditionImageView: UIImageView!
     @IBOutlet weak var temperatureLabel: UILabel!
@@ -16,25 +17,54 @@ class ViewController: UIViewController, UITextFieldDelegate, weatherManagerDeleg
     @IBOutlet weak var searchTextField: UITextField!
     
     var weatherManager = WeatherManager()
+    let locationManager = CLLocationManager()
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        // set location delegate before requesting location
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestLocation()
+        
+        //monitors location
+        // locationManager.startUpdatingLocation()
         
         weatherManager.delegate = self
         //makes textfileld reports back to the view controller
         searchTextField.delegate = self
     }
     
-    @IBAction func searchPressed(_ sender: UIButton) {
-        searchTextField.endEditing(true)
-        print(searchTextField.text!)
-    }
-    
-    
     @IBAction func locationPressed(_ sender: UIButton) {
+        locationManager.requestLocation()
     }
     
+}
+
+//MARK: - weatherManagerDelegate
+
+extension ViewController: weatherManagerDelegate {
     
+    func didUpdateWeather(_ weatherManager: WeatherManager, weather: WeatherModel) {
+        print(weather.temperatureString)
+        
+        DispatchQueue.main.async {
+            self.conditionImageView.image = UIImage(systemName: weather.conditionName)
+            self.temperatureLabel.text = weather.temperatureString
+            
+            self.cityLabel.text = weather.cityName
+            
+        }
+    }
+    
+    func didFailWithError(error: Error) {
+        print(error)
+    }
+}
+
+//MARK: - UITextFieldDelegate
+
+extension ViewController: UITextFieldDelegate {
+ 
     //triggers what happens when the return key is pressed
     
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -61,19 +91,29 @@ class ViewController: UIViewController, UITextFieldDelegate, weatherManagerDeleg
         searchTextField.text = ""
     }
     
-    func didUpdateWeather(_ weatherManager: WeatherManager, weather: WeatherModel) {
-        print(weather.temperatureString)
-        
-        DispatchQueue.main.async {
-            self.conditionImageView.image = UIImage(systemName: weather.conditionName)
-            self.temperatureLabel.text = weather.temperatureString
-            self.cityLabel.text = weather.cityName
+    @IBAction func searchPressed(_ sender: UIButton) {
+        searchTextField.endEditing(true)
+        print(searchTextField.text!)
+    }
+}
+
+//MARK: - CLLocationManagerDelegate
+
+extension ViewController: CLLocationManagerDelegate {
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        // to get the most accurate last location entered
+        if let location = locations.last {
+            locationManager.stopUpdatingLocation()
+            let lat = location.coordinate.latitude
+            let long = location.coordinate.longitude
+            
+            weatherManager.fetchWeather(latitude: lat, longitude: long)
         }
     }
     
-    func didFailWithError(error: Error) {
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print(error)
     }
     
 }
-
